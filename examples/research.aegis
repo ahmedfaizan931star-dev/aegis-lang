@@ -1,0 +1,43 @@
+# Tools for a research assistant.
+# Everything that is not allowed here is blocked, by default.
+
+tool search_web
+  description "Search the web and return the top results as JSON"
+  input query: text "What to search for"
+  input count: number "How many results to return" = 5
+  allow network "api.search.example"
+  deny files, shell
+  secret SEARCH_KEY
+  limit time 5s
+  limit calls 10/min
+  limit output 20kb
+  cache 60s
+  retry 2
+  approve untrusted
+  run get "https://api.search.example/v1/search?q={query}&n={count}" header Authorization = "Bearer {secret.SEARCH_KEY}"
+  then json
+  output json
+
+tool fetch_page
+  description "Download a page from docs.example.org and return its first 8000 characters"
+  input slug: text "Page slug, for example getting-started"
+  allow network "docs.example.org"
+  limit time 8s
+  limit calls 20/min
+  run get "https://docs.example.org/pages?slug={slug}"
+  then trim 8000
+  output text
+
+tool save_note
+  description "Save a note as a Markdown file in the notes folder"
+  input name: text "File name without extension"
+  input body: text "The note text"
+  allow write "./notes"
+  run write "./notes/{name}.md" content "{body}"
+
+tool read_note
+  description "Read a note from the notes folder"
+  input name: text "File name without extension"
+  allow read "./notes"
+  limit output 50kb
+  run read "./notes/{name}.md"

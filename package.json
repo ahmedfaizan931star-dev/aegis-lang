@@ -1,0 +1,20 @@
+{
+  "name": "aegis-lang",
+  "version": "0.1.0",
+  "description": "Aegis: a small language for defining AI agent tools that are secure by default.",
+  "type": "module",
+  "bin": { "aegis": "dist/aegis.mjs" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node --test dist/test.mjs",
+    "check:examples": "node dist/aegis.mjs check examples/research.aegis examples/github.aegis --strict"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

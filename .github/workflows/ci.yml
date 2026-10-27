@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Build and test
+        run: npm test
+      - name: Check the bundled examples (warnings fail the build)
+        run: npm run check:examples
+      - name: Smoke test the CLI and the MCP server
+        run: |
+          node dist/aegis.mjs report examples/research.aegis
+          node dist/aegis.mjs run examples/research.aegis search_web query=hello --dry-run --audit
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | node dist/aegis.mjs serve examples/research.aegis --dry-run | head -c 400
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: aegis-cli
+          path: dist/aegis.mjs
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: playground
+          path: site
