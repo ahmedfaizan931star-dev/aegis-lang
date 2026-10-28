@@ -1,0 +1,83 @@
+name: Release
+
+# Push a tag like v0.2.0 and this builds everything and attaches it to a GitHub release:
+#   aegis-lang-<version>.tgz  (the npm package), aegis-vscode-<version>.vsix (VS Code extension), aegis.mjs (the CLI)
+# If the repository has a secret called NPM_TOKEN, the package is also published to npm. Without it, that step is skipped.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the release
+  id-token: write # lets npm add a signed "provenance" badge (only used for public repositories)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+
+      - name: The tag must match the version in package.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $VERSION. Change the version, commit, then tag again."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Point package.json at this repository (npm and the extension show it)
+        run: npm pkg set repository.type=git repository.url="git+https://github.com/${{ github.repository }}.git"
+
+      - name: Type check, build, test
+        run: |
+          npm run typecheck
+          npm test
+          npm run check:examples
+          node dist/aegis.mjs test examples/research.aegis examples/github.aegis examples/multistep.aegis
+
+      - name: Build the VS Code extension
+        run: npm run build:vsix
+
+      - name: Collect the files to release
+        run: |
+          mkdir release
+          npm pack --pack-destination release
+          cp dist/aegis.mjs "dist/aegis-vscode-$VERSION.vsix" release/
+          cd release
+          sha256sum * > SHA256SUMS
+          ls -l
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FLAGS=""
+          case "$VERSION" in *-*) FLAGS="--prerelease" ;; esac
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release/* --generate-notes $FLAGS
+          fi
+
+      - name: Publish to npm (only if the NPM_TOKEN secret exists)
+        if: ${{ env.NPM_TOKEN != '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+        run: |
+          ARGS="--access public"
+          case "$VERSION" in *-*) ARGS="$ARGS --tag next" ;; esac
+          if [ "${{ github.event.repository.private }}" = "false" ]; then ARGS="$ARGS --provenance"; fi
+          npm publish "release/aegis-lang-$VERSION.tgz" $ARGS
+
+      - name: Note when npm was skipped
+        if: ${{ env.NPM_TOKEN == '' }}
+        run: echo "::notice::NPM_TOKEN secret not set, so nothing was published to npm. The GitHub release still has the .tgz."

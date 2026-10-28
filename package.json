@@ -1,0 +1,86 @@
+{
+  "name": "aegis-lang",
+  "version": "0.2.0",
+  "description": "Aegis: a small language for defining AI agent tools that are secure by default.",
+  "keywords": [
+    "aegis",
+    "ai",
+    "agent",
+    "tools",
+    "mcp",
+    "security",
+    "language",
+    "llm"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/types/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "node": [
+        "dist/types/node.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./node": {
+      "import": {
+        "types": "./dist/types/node.d.ts",
+        "default": "./dist/node.mjs"
+      },
+      "require": {
+        "types": "./dist/types/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "aegis": "dist/aegis.mjs",
+    "aegis-lang": "dist/aegis.mjs"
+  },
+  "files": [
+    "dist/aegis.mjs",
+    "dist/index.mjs",
+    "dist/index.cjs",
+    "dist/node.mjs",
+    "dist/node.cjs",
+    "dist/types",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node scripts/build.mjs",
+    "build:vsix": "node scripts/build-vsix.mjs",
+    "test": "npm run build && node scripts/test.mjs",
+    "aegis:test": "node dist/aegis.mjs test examples/research.aegis examples/github.aegis examples/multistep.aegis",
+    "bench": "node scripts/bench.mjs",
+    "check:examples": "node dist/aegis.mjs check examples/research.aegis examples/github.aegis examples/multistep.aegis --strict"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}

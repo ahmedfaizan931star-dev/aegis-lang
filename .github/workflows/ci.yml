@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Build and test
+        run: npm test
+      - name: Check the bundled examples (warnings fail the build)
+        run: npm run check:examples
+      - name: Run the tests written inside the .aegis files (aegis test)
+        run: node dist/aegis.mjs test examples/research.aegis examples/github.aegis examples/multistep.aegis
+      - name: Smoke test the CLI and the MCP server
+        run: |
+          node dist/aegis.mjs report examples/research.aegis
+          node dist/aegis.mjs run examples/research.aegis search_web query=hello --dry-run --audit
+          node dist/aegis.mjs run examples/multistep.aegis lookup_then_fetch topic=cats --dry-run --audit
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | node dist/aegis.mjs serve examples/research.aegis --dry-run | head -c 400
+      - name: Install the packed npm package like a user would, and use it
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          mkdir "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          npm init -y > /dev/null
+          npm install "$RUNNER_TEMP"/aegis-lang-*.tgz
+          npx aegis version
+          npx aegis-lang check "$GITHUB_WORKSPACE/examples/multistep.aegis"
+          node -e "console.log('require ok:', typeof require('aegis-lang').analyze)"
+          node --input-type=module -e "import { analyze } from 'aegis-lang'; console.log('import ok:', typeof analyze)"
+      - name: Speed numbers (informational)
+        if: matrix.node == 22
+        run: npm run bench
+      - name: Build the VS Code extension (.vsix)
+        if: matrix.node == 22
+        run: npm run build:vsix
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: aegis-cli
+          path: dist/aegis.mjs
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: aegis-vscode
+          path: dist/*.vsix
+      - uses: actions/upload-artifact@v4
+        if: matrix.node == 22
+        with:
+          name: playground
+          path: site

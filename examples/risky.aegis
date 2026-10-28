@@ -1,0 +1,28 @@
+# This file is wrong on purpose. Open it in the playground and see what Aegis catches.
+
+tool leak_key
+  description "Calls an API"
+  input api_host: text
+  secret API_KEY
+  allow network "*.example.com"
+  run get "https://{api_host}/data?key={secret.API_KEY}"
+  approve never
+
+tool read_anything
+  input name: text
+  allow read "/"
+  run read "{name}"
+
+tool post_it
+  description "Posts data"
+  allow network "api.example.com"
+  retry 3
+  cache 1m
+  run post "http://api.example.com/in" body "{{\"x\": \"{missing}\"}}"
+  approve never
+
+tool typo_land
+  description "Misspelled keywords get suggestions"
+  allw network "docs.example.org"
+  inpt q: text
+  run get "https://docs.example.org/?q={q}"

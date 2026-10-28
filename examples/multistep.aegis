@@ -1,0 +1,55 @@
+# Tools with several steps. Each `run let name = ...` saves its result, and later steps use it as {name}.
+# Every step is checked exactly like a single-step tool: hosts, folders, secrets, limits.
+
+tool lookup_then_fetch
+  description "Look up an id for a topic, then fetch the details for that id"
+  input topic: text "What to look up"
+  allow network "api.example.com"
+  limit time 6s
+  limit calls 20/min
+  limit output 10kb
+  run let found = get "https://api.example.com/lookup?q={topic}"
+  then json
+  then pick id
+  run get "https://api.example.com/items?id={found}"
+  then json
+  output json
+
+tool summarize_page
+  description "Download a docs page, then ask the summary service about it"
+  input slug: text "Page slug, for example getting-started"
+  allow network "docs.example.org", "summary.example.org"
+  secret SUMMARY_KEY
+  limit time 10s
+  limit calls 10/min
+  limit output 10kb
+  run let page = get "https://docs.example.org/pages?slug={slug}"
+  then trim 4000
+  run post "https://summary.example.org/v1/summarize" header Authorization = "Bearer {secret.SUMMARY_KEY}" body "{{\"text\": \"{page}\"}}"
+  then json
+  output json
+
+test "the second step uses the first step's result"
+  mock "https://api.example.com/lookup" body "{\"id\": 42}"
+  call lookup_then_fetch topic="cats"
+  expect ok
+  expect output contains "items?id=42"
+
+test "a redirect in the second step cannot leave the allow list"
+  mock "https://api.example.com/lookup" body "{\"id\": 7}"
+  mock "https://api.example.com/items" status 302 header Location = "https://evil.example.net/steal"
+  call lookup_then_fetch topic="dogs"
+  expect denied
+
+test "a broken first step stops the tool"
+  mock "https://api.example.com/lookup" body "not json"
+  call lookup_then_fetch topic="x"
+  expect error FAILED
+
+test "summarize_page needs a human, and hides its key"
+  call summarize_page slug="intro"
+  expect denied
+  call summarize_page slug="intro" approved
+  expect ok
+  expect output not contains "dryrun-SUMMARY_KEY-secret"
+  expect output contains "REDACTED:SUMMARY_KEY"

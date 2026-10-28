@@ -1,0 +1,75 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Aegis",
+  "scopeName": "source.aegis",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#block-start" },
+    { "include": "#string" },
+    { "include": "#statement" },
+    { "include": "#word" },
+    { "include": "#rate" },
+    { "include": "#number" },
+    { "include": "#secret-name" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.aegis"
+    },
+    "block-start": {
+      "match": "^(tool|test)\\b",
+      "name": "storage.type.block.aegis"
+    },
+    "statement": {
+      "match": "^\\s+(description|input|allow|deny|secret|limit|cache|retry|approve|run|then|output|mock|call|expect)\\b",
+      "captures": { "1": { "name": "keyword.control.statement.aegis" } }
+    },
+    "word": {
+      "patterns": [
+        { "match": "\\b(let)\\b", "name": "keyword.other.let.aegis" },
+        { "match": "\\b(text|number|bool)\\b", "name": "storage.type.input.aegis" },
+        { "match": "\\b(get|post|read|write|echo)\\b", "name": "support.function.action.aegis" },
+        { "match": "\\b(json|pick|trim)\\b", "name": "support.function.transform.aegis" },
+        { "match": "\\b(network|files|shell|env)\\b", "name": "support.type.capability.aegis" },
+        { "match": "\\b(never|always|untrusted|approved)\\b", "name": "constant.language.approval.aegis" },
+        { "match": "\\b(ok|denied|error|contains|not)\\b", "name": "keyword.operator.expect.aegis" },
+        { "match": "\\b(header|body|content|status|time|calls|if|when)\\b", "name": "keyword.other.option.aegis" },
+        { "match": "\\b(true|false)\\b", "name": "constant.language.boolean.aegis" }
+      ]
+    },
+    "string": {
+      "begin": "\"",
+      "end": "(\")|$",
+      "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.aegis" } },
+      "endCaptures": { "1": { "name": "punctuation.definition.string.end.aegis" } },
+      "name": "string.quoted.double.aegis",
+      "patterns": [
+        { "match": "\\\\.", "name": "constant.character.escape.aegis" },
+        { "match": "\\{\\{|\\}\\}", "name": "constant.character.escape.brace.aegis" },
+        { "match": "\\{secret\\.[A-Z][A-Z0-9_]*\\}", "name": "variable.other.secret.aegis" },
+        { "match": "\\{[a-z][a-z0-9_]*\\}", "name": "variable.parameter.placeholder.aegis" }
+      ]
+    },
+    "rate": {
+      "match": "\\b\\d+/(sec|min|hour)\\b",
+      "name": "constant.numeric.rate.aegis"
+    },
+    "number": {
+      "match": "\\b\\d+(?:\\.\\d+)?(?:ms|s|m|h|b|kb|mb)?\\b",
+      "name": "constant.numeric.aegis"
+    },
+    "secret-name": {
+      "match": "\\b[A-Z][A-Z0-9_]+\\b",
+      "name": "constant.other.secret-name.aegis"
+    },
+    "punctuation": {
+      "patterns": [
+        { "match": ":", "name": "punctuation.separator.colon.aegis" },
+        { "match": ",", "name": "punctuation.separator.comma.aegis" },
+        { "match": "=", "name": "keyword.operator.assignment.aegis" }
+      ]
+    }
+  }
+}

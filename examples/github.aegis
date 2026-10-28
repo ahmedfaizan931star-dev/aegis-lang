@@ -1,0 +1,46 @@
+# A read-only GitHub helper that uses a token the model never sees.
+
+tool repo_info
+  description "Get the name, description and star count of a public GitHub repository"
+  input owner: text "Repository owner"
+  input repo: text "Repository name"
+  allow network "api.github.com"
+  secret GITHUB_TOKEN
+  limit time 6s
+  limit calls 30/min
+  limit output 10kb
+  cache 5m
+  retry 1
+  run get "https://api.github.com/repos/{owner}/{repo}" header Authorization = "Bearer {secret.GITHUB_TOKEN}" header Accept = "application/vnd.github+json"
+  then json
+  output json
+
+tool star_count
+  description "Get just the number of stars of a public GitHub repository"
+  input owner: text "Repository owner"
+  input repo: text "Repository name"
+  allow network "api.github.com"
+  secret GITHUB_TOKEN
+  limit time 6s
+  limit calls 30/min
+  cache 5m
+  run get "https://api.github.com/repos/{owner}/{repo}" header Authorization = "Bearer {secret.GITHUB_TOKEN}"
+  then pick stargazers_count
+  output number
+
+# ---- tests: run them with `aegis test examples/github.aegis` ----
+
+test "star_count returns just the number"
+  mock "https://api.github.com/repos/" body "{\"stargazers_count\": 42, \"name\": \"x\"}"
+  call star_count owner="a" repo="b"
+  expect output "42"
+
+test "star_count fails cleanly when the answer has no star count"
+  mock "https://api.github.com/repos/" body "{\"name\": \"x\"}"
+  call star_count owner="a" repo="b"
+  expect error FAILED
+
+test "the token never appears in the output"
+  call repo_info owner="a" repo="b"
+  expect ok
+  expect output not contains "dryrun-GITHUB_TOKEN-secret"

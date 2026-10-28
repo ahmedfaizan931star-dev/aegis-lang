@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis: agent tools that can only do what you allow</title>
+<meta name="description" content="Write AI agent tools in a small language. Aegis blocks everything you did not allow, grades the result, and exports to MCP, OpenAI and Anthropic.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF0F3; --panel:#FBFCFD; --ink:#0F1B2D; --muted:#5B6878; --line:#CBD3DC;
+  --navy:#0F2038; --navy-2:#17304F; --code:#DCE6F5;
+  --allow:#0B7A63; --ok2:#4F7A21; --warn:#A8650A; --orange:#B4470F; --deny:#B42318; --info:#2D5E9E;
+  --font:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.5 var(--font);-webkit-text-size-adjust:100%}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:baseline;gap:12px;margin-right:auto;min-width:0}
+.brand h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.brand p{margin:0;color:var(--muted);font-size:14px}
+.top select,.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 12px;cursor:pointer}
+.btn:hover,.top select:hover{border-color:#9AA7B6}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:500}
+.btn.primary:hover{background:#1B2E4A}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.app{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);height:calc(100dvh - 58px)}
+.editor{background:var(--navy);display:flex;flex-direction:column;min-height:0}
+.code{position:relative;flex:1;min-height:0}
+.code pre,.code textarea{position:absolute;inset:0;margin:0;padding:18px 20px;border:0;font:400 13.5px/1.7 var(--mono);tab-size:2;white-space:pre;overflow:auto;letter-spacing:0}
+.code pre{color:var(--code);pointer-events:none}
+.code textarea{background:transparent;color:transparent;caret-color:#fff;resize:none;outline:none;-webkit-text-fill-color:transparent}
+.code textarea::selection{background:rgba(127,181,255,.35);-webkit-text-fill-color:transparent}
+.k{color:#7FB5FF}.s{color:#9BE0C2}.c{color:#7C8DA6;font-style:italic}.n{color:#F2C879}.t{color:#C8B6FF}
+.status{display:flex;gap:16px;padding:9px 20px;border-top:1px solid #243F63;color:#9FB3CC;font:400 12.5px var(--mono)}
+.status b{font-weight:500}.status .e{color:#FF9B8F}.status .w{color:#F2C879}.status .good{color:#8FE0C4}
+
+.panel{background:var(--panel);overflow:auto;min-height:0;border-left:1px solid var(--line)}
+.grade{display:flex;gap:18px;align-items:center;padding:20px;border-bottom:1px solid var(--line)}
+.letter{--c:var(--allow);flex:none;width:76px;height:76px;display:grid;place-items:center;border:3px solid var(--c);border-radius:10px;color:var(--c);font-size:46px;font-weight:800;line-height:1;transition:color .2s,border-color .2s}
+.letter.pop{animation:pop .28s ease-out}
+@keyframes pop{from{transform:scale(1.16)}to{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.letter.pop{animation:none}}
+.g-A{--c:var(--allow)}.g-B{--c:var(--ok2)}.g-C{--c:var(--warn)}.g-D{--c:var(--orange)}.g-F{--c:var(--deny)}
+.grade strong{display:block;font-size:17px}
+.grade span{color:var(--muted);font-size:14px}
+
+.tabs{display:flex;gap:2px;overflow-x:auto;padding:0 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.tabs button{border:0;background:none;padding:12px 12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
+.tabs .count{display:inline-block;min-width:20px;margin-left:6px;padding:0 6px;border-radius:10px;background:var(--deny);color:#fff;font-size:12px;text-align:center}
+.pane{padding:20px}
+.pane[hidden]{display:none}
+.empty{color:var(--muted);margin:0}
+
+.tool{border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;padding:14px 16px;margin-bottom:14px;background:#fff}
+.tool header{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.tool h3{margin:0;font:500 15px var(--mono)}
+.tool .mini{color:var(--c);font-weight:800}
+.tool dl{display:grid;grid-template-columns:92px 1fr;gap:5px 12px;margin:12px 0 8px}
+.tool dt{color:var(--muted)}.tool dd{margin:0;font:400 13.5px var(--mono);overflow-wrap:anywhere}
+.tool .none{color:var(--muted)}.tool .host{color:var(--allow)}.tool .wild{color:var(--warn)}
+.tool ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
+
+.problem{display:block;width:100%;text-align:left;border:1px solid var(--line);border-left:4px solid var(--c);background:#fff;border-radius:8px;padding:10px 14px;margin-bottom:10px;cursor:pointer}
+.problem:hover{border-color:#9AA7B6;border-left-color:var(--c)}
+.problem.error{--c:var(--deny)}.problem.warning{--c:var(--warn)}.problem.info{--c:var(--info)}
+.problem .where{font:400 12.5px var(--mono);color:var(--muted)}
+.problem .hint{display:block;margin-top:4px;color:var(--muted);font-size:14px}
+.problem .sev{font-weight:700;color:var(--c)}
+
+pre.json{margin:0;padding:16px;background:var(--navy);color:var(--code);border-radius:8px;font:400 12.5px/1.65 var(--mono);overflow:auto;max-height:62vh}
+.row{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.row p{margin:0;color:var(--muted);font-size:14px}
+
+.field{display:grid;gap:4px;margin-bottom:12px}
+.field label{font-weight:500}.field small{color:var(--muted)}
+.field input[type=text],.field input[type=number],.field input[type=password],.field select{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#fff;font-family:var(--mono);font-size:13.5px}
+.check{display:flex;gap:8px;align-items:flex-start;margin:8px 0;color:var(--ink)}
+.check input{margin-top:5px}
+.result{margin-top:16px;border-radius:8px;border:1px solid var(--line);background:#fff;padding:14px 16px}
+.result.ok{border-left:4px solid var(--allow)}.result.bad{border-left:4px solid var(--deny)}
+.result h4{margin:0 0 6px;font-size:15px}
+.result pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:400 13px/1.6 var(--mono)}
+.tag{display:inline-block;margin-top:8px;padding:2px 8px;border-radius:5px;background:#FFF2DB;color:#7A4A04;font-size:13px}
+table.audit{width:100%;border-collapse:collapse;margin-top:8px;font:400 12.5px var(--mono)}
+.audit th{text-align:left;color:var(--muted);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+.audit td{padding:6px 8px;border-bottom:1px solid #E6EBF0;vertical-align:top;overflow-wrap:anywhere}
+.audit .ev-denied,.audit .ev-error{color:var(--deny)}.audit .ev-network,.audit .ev-write,.audit .ev-read{color:var(--info)}.audit .ev-approved,.audit .ev-result{color:var(--allow)}
+.chain{margin:10px 0 0;font-size:14px}.chain.ok{color:var(--allow)}.chain.bad{color:var(--deny);font-weight:700}
+
+@media (max-width:900px){
+  .app{display:block;height:auto}
+  .editor{height:52dvh}
+  .panel{border-left:0;overflow:visible}
+  .brand p{display:none}
+  .top{padding:10px 14px}
+  .pane{padding:16px 14px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><h1>Aegis</h1><p>Define agent tools. Everything you did not allow is blocked.</p></div>
+  <select id="examples" aria-label="Load an example"></select>
+  <button class="btn primary" id="share">Copy share link</button>
+</header>
+<div class="app">
+  <section class="editor" aria-label="Aegis source">
+    <div class="code">
+      <pre id="hl" aria-hidden="true"></pre>
+      <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Aegis source code"></textarea>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+  <section class="panel" aria-label="Results">
+    <div class="grade" id="grade">
+      <div class="letter g-A" id="letter">A</div>
+      <div><strong id="gradeTitle"></strong><span id="gradeSub"></span></div>
+    </div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-tab="report" aria-selected="true">Report</button>
+      <button role="tab" data-tab="problems" aria-selected="false">Problems<span class="count" id="pcount" hidden></span></button>
+      <button role="tab" data-tab="run" aria-selected="false">Try it</button>
+      <button role="tab" data-tab="mcp" aria-selected="false">MCP</button>
+      <button role="tab" data-tab="openai" aria-selected="false">OpenAI</button>
+      <button role="tab" data-tab="anthropic" aria-selected="false">Anthropic</button>
+    </div>
+    <div class="pane" id="pane-report" role="tabpanel"></div>
+    <div class="pane" id="pane-problems" role="tabpanel" hidden></div>
+    <div class="pane" id="pane-run" role="tabpanel" hidden></div>
+    <div class="pane" id="pane-mcp" role="tabpanel" hidden></div>
+    <div class="pane" id="pane-openai" role="tabpanel" hidden></div>
+    <div class="pane" id="pane-anthropic" role="tabpanel" hidden></div>
+  </section>
+</div>
+<script src="playground.js" defer></script>
+</body>
+</html>

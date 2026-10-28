@@ -1,0 +1,46 @@
+{
+  "name": "aegis-vscode",
+  "displayName": "Aegis",
+  "description": "Syntax colours and live error checking for Aegis (.aegis) files.",
+  "version": "0.0.0",
+  "publisher": "aegis-lang",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages", "Linters"],
+  "keywords": ["aegis", "agent", "tools", "mcp", "security"],
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:aegis"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "aegis",
+        "aliases": ["Aegis", "aegis"],
+        "extensions": [".aegis"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "aegis",
+        "scopeName": "source.aegis",
+        "path": "./syntaxes/aegis.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Aegis",
+      "properties": {
+        "aegis.check.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Underline errors and warnings found by the Aegis checker while you type."
+        },
+        "aegis.check.delayMs": {
+          "type": "number",
+          "default": 200,
+          "minimum": 0,
+          "description": "How long to wait after you stop typing before checking, in milliseconds."
+        }
+      }
+    }
+  }
+}
