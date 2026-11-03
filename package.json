@@ -76,7 +76,7 @@
     "check:examples": "node dist/aegis.mjs check examples/research.aegis examples/github.aegis examples/multistep.aegis --strict"
   },
   "devDependencies": {
-    "@types/node": "^20.14.0",
+    "@types/node": "^26.6.6",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.24.0",
     "typescript": "^5.6.0",
